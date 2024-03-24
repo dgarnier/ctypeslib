@@ -15,18 +15,18 @@ import sys
 import warnings
 from ctypes.util import find_library
 
-from pkg_resources import get_distribution, DistributionNotFound
+from importlib import metadata
 
 try:
-    __dist = get_distribution('ctypeslib2')
+    __dist = metadata.version('ctypeslib2')
     # Normalize case for Windows systems
     # if you are in a virtualenv, ./local/* are aliases to ./*
     __dist_loc = os.path.normcase(os.path.realpath(__dist.location))
     __here = os.path.normcase(os.path.realpath(__file__))
     if not __here.startswith(os.path.join(__dist_loc, 'ctypeslib')):
         # not installed, but there is another version that *is*
-        raise DistributionNotFound
-except DistributionNotFound:
+        raise metadata.PackageNotFoundError()
+except metadata.PackageNotFoundError:
     __version__ = 'Please install the latest version of this python package'
 else:
     __version__ = __dist.version
@@ -114,7 +114,7 @@ try:
     from clang import cindex
     from ctypeslib.codegen.codegenerator import translate, translate_files
 
-    __clang_py_version__ = get_distribution('clang').version
+    __clang_py_version__ = metadata.version('clang')
     __clang_library_filename = __configure_clang_cindex()
     if __clang_library_filename is None:
         warnings.warn("Could not find the clang library. please install llvm libclang", RuntimeWarning)
