@@ -39,10 +39,13 @@ class Library(metaclass=LibraryMeta):
     def _get_symbols(self, nm):
 
         cmd = [nm,]
-        if sys.platform != 'darwin':
+        if sys.platform == 'darwin':
             # fix for #125, nm error "File format has no dynamic symbol table" for dylib
-            cmd.append("--dynamic")
-        cmd.extend(["--defined-only", self._filepath])
+            # also older versions from llvm/clang don't support -- options
+            cmd.extend(["-g", "-U"])
+        else:
+            cmd.extend(["--dynamic", "--defined-only", self._filepath])
+        cmd.append(self._filepath)
         output = subprocess.check_output(cmd, universal_newlines=True)
         for line in output.split('\n'):
             fields = line.split(' ', 2)
