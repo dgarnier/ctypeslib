@@ -10,7 +10,9 @@ and providing tools for handling errors and exceptions that may occur when calli
 
 import ctypes
 import os
+from pathlib import Path
 import re
+import subprocess
 import sys
 import warnings
 from ctypes.util import find_library
@@ -26,8 +28,8 @@ def __find_clang_libraries():
     version_major = __clang_py_version__.split('.')[0]
     # try default system name
     v_list = [f"clang-{__clang_py_version__}", f"clang-{version_major}", "libclang", "clang"]
-    # tries clang version 16 to 7
-    v_list += [f"clang-{_}" for _ in range(16, 6, -1)]
+    # tries clang version 18 to 7
+    v_list += [f"clang-{_}" for _ in range(18, 6, -1)]
     # with the dotted form of clang 6.0 to 4.0
     v_list += [f"clang-{_:.1f}" for _ in range(6, 3, -1)]
     # clang 3 supported versions
@@ -35,14 +37,20 @@ def __find_clang_libraries():
     for _version in v_list:
         _filename = find_library(_version)
         if _filename:
-            _libs.append(_filename)
+            _libs.append(_filename)    
     # On darwin, also consider either Xcode or CommandLineTools.
     if os.name == "posix" and sys.platform == "darwin":
-        for _ in ['/Library/Developer/CommandLineTools/usr/lib/libclang.dylib',
-                  '/Applications/Xcode.app/Contents/Frameworks/libclang.dylib',
-                  ]:
-            if os.path.exists(_):
-                _libs.insert(0, _)
+        try:
+            _ = subprocess.check_output([f"clang-{version_major}",
+                                        '-print-resource-dir']
+                                        ).decode('utf8').strip()
+            _filepath = (Path(_) / '../../libclang.dylib').resolve(strict=True)
+            _libs.append(str(_filepath))
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            for _ in ['/Library/Developer/CommandLineTools/usr/lib/libclang.dylib',
+                      '/Applications/Xcode.app/Contents/Frameworks/libclang.dylib']:
+                if os.path.exists(_):
+                    _libs.insert(0, _) # treat as backup.  Use matching version to clang_py if found.        
     return _libs
 
 

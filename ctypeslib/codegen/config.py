@@ -41,11 +41,16 @@ class CodegenConfig:
     def __init__(self):
         self._init_types()
         self.clang_opts = []
-        if sys.platform == 'darwin':
+        if sys.platform == 'darwin' and 'CTYPESLIB2_SKIP_MACOS_SDK' not in os.environ:
             try:
-                sysroot = subprocess.check_output(['xcrun', '--show-sdk-path']).decode('utf8').strip()
-            except subprocess.CalledProcessError:
-                raise RuntimeError("The XCode Command Line Tools must be installed to provide the C standard library headers. Set CTYPESLIB2_SKIP_MACOS_SDK=1 in the environment to skip this check.")
+                sysroot = subprocess.check_output(['xcrun', '--show-sdk-path']
+                                                  ).decode('utf8').strip()
+            except subprocess.CalledProcessError as exc:
+                raise RuntimeError("The XCode Command Line Tools must be "
+                                   "installed to provide the C standard "
+                                   "library headers. Set "
+                                   "CTYPESLIB2_SKIP_MACOS_SDK=1 in the "
+                                   "environment to skip this check.") from exc
             self.clang_opts.extend(['-isysroot', sysroot])
 
     def parse_options(self, options):
