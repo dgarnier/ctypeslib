@@ -44,7 +44,7 @@ class Library(metaclass=LibraryMeta):
             # also older versions from llvm/clang don't support -- options
             cmd.extend(["-g", "-U"])
         else:
-            cmd.extend(["--dynamic", "--defined-only", self._filepath])
+            cmd.extend(["--dynamic", "--defined-only"])
         cmd.append(self._filepath)
         output = subprocess.check_output(cmd, universal_newlines=True)
         for line in output.split('\n'):
