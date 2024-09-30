@@ -10,27 +10,16 @@ and providing tools for handling errors and exceptions that may occur when calli
 
 import ctypes
 import os
+from pathlib import Path
 import re
+import subprocess
 import sys
 import warnings
 from ctypes.util import find_library
 
-from pkg_resources import get_distribution, DistributionNotFound
+from importlib import metadata
 
-try:
-    __dist = get_distribution('ctypeslib2')
-    # Normalize case for Windows systems
-    # if you are in a virtualenv, ./local/* are aliases to ./*
-    __dist_loc = os.path.normcase(os.path.realpath(__dist.location))
-    __here = os.path.normcase(os.path.realpath(__file__))
-    if not __here.startswith(os.path.join(__dist_loc, 'ctypeslib')):
-        # not installed, but there is another version that *is*
-        raise DistributionNotFound
-except DistributionNotFound:
-    __version__ = 'Please install the latest version of this python package'
-else:
-    __version__ = __dist.version
-
+__version__ = metadata.version('ctypeslib2')
 
 def __find_clang_libraries():
     """ configure python-clang to use the local clang library """
@@ -39,8 +28,8 @@ def __find_clang_libraries():
     version_major = __clang_py_version__.split('.')[0]
     # try default system name
     v_list = [f"clang-{__clang_py_version__}", f"clang-{version_major}", "libclang", "clang"]
-    # tries clang version 16 to 7
-    v_list += [f"clang-{_}" for _ in range(16, 6, -1)]
+    # tries clang version 18 to 7
+    v_list += [f"clang-{_}" for _ in range(18, 6, -1)]
     # with the dotted form of clang 6.0 to 4.0
     v_list += [f"clang-{_:.1f}" for _ in range(6, 3, -1)]
     # clang 3 supported versions
@@ -48,14 +37,20 @@ def __find_clang_libraries():
     for _version in v_list:
         _filename = find_library(_version)
         if _filename:
-            _libs.append(_filename)
+            _libs.append(_filename)    
     # On darwin, also consider either Xcode or CommandLineTools.
     if os.name == "posix" and sys.platform == "darwin":
-        for _ in ['/Library/Developer/CommandLineTools/usr/lib/libclang.dylib',
-                  '/Applications/Xcode.app/Contents/Frameworks/libclang.dylib',
-                  ]:
-            if os.path.exists(_):
-                _libs.insert(0, _)
+        try:
+            _ = subprocess.check_output([f"clang-{version_major}",
+                                        '-print-resource-dir']
+                                        ).decode('utf8').strip()
+            _filepath = (Path(_) / '../../libclang.dylib').resolve(strict=True)
+            _libs.append(str(_filepath))
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            for _ in ['/Library/Developer/CommandLineTools/usr/lib/libclang.dylib',
+                      '/Applications/Xcode.app/Contents/Frameworks/libclang.dylib']:
+                if os.path.exists(_):
+                    _libs.insert(0, _) # treat as backup.  Use matching version to clang_py if found.        
     return _libs
 
 
@@ -114,7 +109,7 @@ try:
     from clang import cindex
     from ctypeslib.codegen.codegenerator import translate, translate_files
 
-    __clang_py_version__ = get_distribution('clang').version
+    __clang_py_version__ = metadata.version('clang')
     __clang_library_filename = __configure_clang_cindex()
     if __clang_library_filename is None:
         warnings.warn("Could not find the clang library. please install llvm libclang", RuntimeWarning)
